@@ -28,13 +28,16 @@ class << ActiveRecord::Base
 
     # Create scope accessor and set to option
     cattr_accessor :ancestry_scope_column, :ancestry_scope_association
-    if options[:ancestry_scope].is_a?(Symbol) && options[:ancestry_scope].to_s !~ /_id$/
-      self.ancestry_scope_association = options[:ancestry_scope].to_s
-      self.ancestry_scope_column = "#{options[:ancestry_scope]}_id".intern
-    else
-      self.ancestry_scope_column = options[:ancestry_scope]
-      self.ancestry_scope_association = "#{options[:ancestry_scope].to_s.gsub(/_id$/, '')}"
+    if options[:ancestry_scope]
+      if options[:ancestry_scope].is_a?(Symbol) && options[:ancestry_scope].to_s !~ /_id$/
+        self.ancestry_scope_association = options[:ancestry_scope].to_s
+        self.ancestry_scope_column = "#{options[:ancestry_scope]}_id".intern
+      else
+        self.ancestry_scope_column = options[:ancestry_scope]
+        self.ancestry_scope_association = "#{options[:ancestry_scope].to_s.gsub(/_id$/, '')}"
+      end
     end
+
 
     # Touch ancestors after updating
     cattr_accessor :touch_ancestors
@@ -64,7 +67,7 @@ class << ActiveRecord::Base
 
     # Set scope association unless already set
     before_save :set_scope_association
-    
+
     # Update descendants with new ancestry before save
     before_save :update_descendants_with_new_ancestry
 
