@@ -3,7 +3,7 @@ class << ActiveRecord::Base
     # Check options
     raise Ancestry::AncestryException.new("Options for has_ancestry must be in a hash.") unless options.is_a? Hash
     options.each do |key, value|
-      unless [:ancestry_column, :orphan_strategy, :cache_depth, :depth_cache_column, :touch].include? key
+      unless [:ancestry_column, :orphan_strategy, :ancestry_scope, :cache_depth, :depth_cache_column, :touch].include? key
         raise Ancestry::AncestryException.new("Unknown option for has_ancestry: #{key.inspect} => #{value.inspect}.")
       end
     end
@@ -26,6 +26,16 @@ class << ActiveRecord::Base
     cattr_accessor :ancestry_base_class
     self.ancestry_base_class = self
 
+    # Create scope accessor and set to option
+    cattr_accessor :ancestry_scope_column, :ancestry_scope_association
+    if options[:ancestry_scope].is_a?(Symbol) && options[:ancestry_scope].to_s !~ /_id$/
+      self.ancestry_scope_association = options[:ancestry_scope].to_s
+      self.ancestry_scope_column = "#{options[:ancestry_scope]}_id".intern
+    else
+      self.ancestry_scope_column = options[:ancestry_scope]
+      self.ancestry_scope_association = "#{options[:ancestry_scope].to_s.gsub(/_id$/, '')}"
+    end
+
     # Touch ancestors after updating
     cattr_accessor :touch_ancestors
     self.touch_ancestors = options[:touch] || false
@@ -37,15 +47,24 @@ class << ActiveRecord::Base
     validate :ancestry_exclude_self
 
     # Named scopes
+    if options[:ancestry_scope]
+      scope :root_scope, lambda { |object| where(to_node(object).scope_conditions) }
+    else
+      scope :root_scope, unscoped
+    end
     scope :roots, lambda { where(ancestry_column => nil) }
-    scope :ancestors_of, lambda { |object| where(to_node(object).ancestor_conditions) }
-    scope :children_of, lambda { |object| where(to_node(object).child_conditions) }
-    scope :descendants_of, lambda { |object| where(to_node(object).descendant_conditions) }
-    scope :subtree_of, lambda { |object| where(to_node(object).subtree_conditions) }
-    scope :siblings_of, lambda { |object| where(to_node(object).sibling_conditions) }
+    scope :roots_of, lambda { |object| root_scope(object).where(ancestry_column => nil) }
+    scope :ancestors_of, lambda { |object| root_scope(object).where(to_node(object).ancestor_conditions) }
+    scope :children_of, lambda { |object| root_scope(object).where(to_node(object).child_conditions) }
+    scope :descendants_of, lambda { |object| root_scope(object).where(to_node(object).descendant_conditions) }
+    scope :subtree_of, lambda { |object| root_scope(object).where(to_node(object).subtree_conditions) }
+    scope :siblings_of, lambda { |object| root_scope(object).where(to_node(object).sibling_conditions) }
     scope :ordered_by_ancestry, lambda { reorder("(case when #{table_name}.#{ancestry_column} is null then 0 else 1 end), #{table_name}.#{ancestry_column}") }
     scope :ordered_by_ancestry_and, lambda { |order| reorder("(case when #{table_name}.#{ancestry_column} is null then 0 else 1 end), #{table_name}.#{ancestry_column}, #{order}") }
 
+    # Set scope association unless already set
+    before_save :set_scope_association
+    
     # Update descendants with new ancestry before save
     before_save :update_descendants_with_new_ancestry
 

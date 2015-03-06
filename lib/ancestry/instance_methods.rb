@@ -5,6 +5,15 @@ module Ancestry
       errors.add(:base, "#{self.class.name.humanize} cannot be a descendant of itself.") if ancestor_ids.include? self.id
     end
 
+    # Set scope_association unless already set
+    def set_scope_association
+      unless ancestry_callbacks_disabled?
+        if ancestry_scope_association && eval("self.#{ancestry_scope_association}").blank? && parent
+          eval("self.#{ancestry_scope_association} = parent.#{ancestry_scope_association}")
+        end
+      end
+    end
+
     # Update descendants with new ancestry
     def update_descendants_with_new_ancestry
       # Skip this if callbacks are disabled
@@ -167,7 +176,27 @@ module Ancestry
       parent_id.present?
     end
 
+    # Scope
+    def scope_conditions
+      return true unless self.ancestry_scope_column
+      t = get_arel_table
+      t[get_scope_column].eq(eval("self.#{ancestry_scope_column}"))
+    end
+
     # Root
+
+    def root_conditions
+      t = get_arel_table
+      t[get_ancestry_column].eq(nil)
+    end
+
+    def roots
+      self.ancestry_base_class.where(scope_conditions).where(root_conditions)
+    end
+
+    def roots_and_descendants
+      self.ancestry_base_class.where(scope_conditions)
+    end
 
     def root_id
       if ancestor_ids.empty? then id else ancestor_ids.first end
@@ -231,6 +260,19 @@ module Ancestry
       !has_siblings?
     end
     alias_method :only_child?, :is_only_child?
+
+    def siblings_and_descendants_conditions
+      t = get_arel_table
+      t[get_ancestry_column].eq(read_attribute(self.ancestry_base_class.ancestry_column)).or(t[get_ancestry_column].matches("#{read_attribute(self.ancestry_base_class.ancestry_column)}/%"))
+    end
+
+    def siblings_and_descendants
+      if is_root?
+        self.ancestry_base_class.where(scope_conditions)
+      else
+        self.ancestry_base_class.where(scope_conditions).where(siblings_and_descendants_conditions)
+      end
+    end
 
     # Descendants
 
@@ -313,6 +355,10 @@ module Ancestry
 
     def get_ancestry_column
       self.ancestry_base_class.ancestry_column.to_sym
+    end
+
+    def get_scope_column
+      self.ancestry_base_class.ancestry_scope_column.to_sym
     end
   end
 end
