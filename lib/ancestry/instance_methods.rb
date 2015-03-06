@@ -244,7 +244,7 @@ module Ancestry
     end
 
     def siblings
-      self.ancestry_base_class.where sibling_conditions
+      self.ancestry_base_class.where(scope_conditions).where(sibling_conditions)
     end
 
     def sibling_ids
