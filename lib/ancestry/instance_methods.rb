@@ -137,6 +137,10 @@ module Ancestry
       ancestor_ids + [id]
     end
 
+    def path_string(delimiter = '/')
+      path_ids.join(delimiter)
+    end
+
     def path_conditions
       t = get_arel_table
       t[get_primary_key_column].in(path_ids)
