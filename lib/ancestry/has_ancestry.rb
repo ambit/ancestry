@@ -53,7 +53,7 @@ class << ActiveRecord::Base
     if options[:ancestry_scope]
       scope :root_scope, lambda { |object| where(to_node(object).scope_conditions) }
     else
-      scope :root_scope, unscoped
+      scope :root_scope, lambda { where(nil) }
     end
     scope :roots, lambda { where(ancestry_column => nil) }
     scope :roots_of, lambda { |object| root_scope(object).where(ancestry_column => nil) }
