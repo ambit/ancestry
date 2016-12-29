@@ -188,6 +188,7 @@ module Ancestry
       return true unless self.ancestry_scope_column
       t = get_arel_table
       t[get_scope_column].eq(eval("self.#{ancestry_scope_column}"))
+    end
 
     def parent_of?(node)
       self.id == node.parent_id
