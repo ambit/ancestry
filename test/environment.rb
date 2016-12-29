@@ -1,10 +1,6 @@
 require 'rubygems'
 require 'bundler/setup'
 
-require 'active_record'
-require 'active_support/test_case'
-require 'active_support/buffered_logger'
-
 require 'simplecov'
 require 'coveralls'
 SimpleCov.formatter = Coveralls::SimpleCov::Formatter
@@ -13,7 +9,11 @@ SimpleCov.start do
   add_filter '/vendor/'
 end
 
-require 'test/unit'
+require 'active_support'
+require 'active_support/test_case'
+ActiveSupport.test_order = :random if ActiveSupport.respond_to?(:test_order=)
+
+require 'active_record'
 require 'logger'
 
 # Make absolutely sure we are testing local ancestry
@@ -27,22 +27,32 @@ class AncestryTestDatabase
     ActiveRecord::Base.logger.level = Logger::Severity::UNKNOWN
 
     # Assume Travis CI database config if no custom one exists
-    filename = if File.exists?(File.expand_path('../database.yml', __FILE__))
+    filename = if File.exist?(File.expand_path('../database.yml', __FILE__))
       File.expand_path('../database.yml', __FILE__)
     else
       File.expand_path('../database.ci.yml', __FILE__)
     end
 
     # Setup database connection
-    YAML.load(File.open(filename).read).values.each do |config|
-      begin
-        ActiveRecord::Base.establish_connection config
-        break if ActiveRecord::Base.connection
-      rescue LoadError, RuntimeError
-        # Try if adapter can be loaded for next config
+    db_type =
+      if ENV["BUNDLE_GEMFILE"] && ENV["BUNDLE_GEMFILE"] != File.expand_path("../../Gemfile", __FILE__)
+        File.basename(ENV["BUNDLE_GEMFILE"]).split("_").first
+      else
+        "sqlite3"
+      end
+    config = YAML.load_file(filename)[db_type]
+    ActiveRecord::Base.establish_connection config
+    begin
+      ActiveRecord::Base.connection
+    rescue => err
+      if ENV["CI"]
+        raise
+      else
+        puts "\nSkipping tests for '#{db_type}'"
+        puts "  #{err}\n\n"
+        exit 0
       end
     end
-    raise 'Could not load any database adapter!' unless ActiveRecord::Base.connected?
   end
 
   def self.with_model options = {}
@@ -110,3 +120,4 @@ puts "  Ruby: #{RUBY_VERSION}"
 puts "  ActiveRecord: #{ActiveRecord::VERSION::STRING}"
 puts "  Database: #{ActiveRecord::Base.connection.adapter_name}\n\n"
 
+require 'minitest/autorun' if ActiveSupport::VERSION::STRING > "4"

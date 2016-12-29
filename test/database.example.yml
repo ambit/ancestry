@@ -1,7 +1,7 @@
 sqlite3:
   adapter: sqlite3
   database: ":memory:"
-postgresql:
+pg:
   adapter: postgresql
   database: ancestry_test
   username: ancestry
@@ -9,6 +9,12 @@ postgresql:
   min_messages: WARNING
 mysql:
   adapter: mysql
+  host: localhost
+  database: ancestry_test
+  username: ancestry
+  password: ancestry
+mysql2:
+  adapter: mysql2
   host: localhost
   database: ancestry_test
   username: ancestry

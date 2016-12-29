@@ -1,3 +1,7 @@
+lib = File.expand_path('../lib/', __FILE__)
+$:.unshift lib unless $:.include?(lib)
+require 'ancestry/version'
+
 Gem::Specification.new do |s|
   s.name        = 'ancestry'
   s.summary     = 'Organize ActiveRecord model into a tree structure'
@@ -11,7 +15,7 @@ Gem::Specification.new do |s|
   orphaned records.
 EOF
 
-  s.version = '2.1.0'
+  s.version = Ancestry::VERSION
 
   s.author   = 'Stefan Kroes'
   s.email    = 's.a.kroes@gmail.com'
@@ -19,17 +23,23 @@ EOF
   s.license  = 'MIT'
 
   s.files = [
-    'ancestry.gemspec', 
-    'init.rb', 
-    'install.rb', 
-    'lib/ancestry.rb', 
-    'lib/ancestry/has_ancestry.rb', 
-    'lib/ancestry/exceptions.rb', 
-    'lib/ancestry/class_methods.rb', 
-    'lib/ancestry/instance_methods.rb', 
-    'MIT-LICENSE', 
+    'ancestry.gemspec',
+    'init.rb',
+    'install.rb',
+    'lib/ancestry.rb',
+    'lib/ancestry/has_ancestry.rb',
+    'lib/ancestry/exceptions.rb',
+    'lib/ancestry/class_methods.rb',
+    'lib/ancestry/instance_methods.rb',
+    'MIT-LICENSE',
     'README.rdoc'
   ]
   
-  s.add_dependency 'activerecord', '>= 3.0.0'
+  s.required_ruby_version     = '>= 1.8.7'
+  s.add_runtime_dependency 'activerecord', '>= 3.2.0'
+  s.add_development_dependency 'yard'
+  s.add_development_dependency 'rake',      '~> 10.0'
+  s.add_development_dependency 'test-unit'
+  s.add_development_dependency 'minitest'
+  s.add_development_dependency 'sqlite3'
 end

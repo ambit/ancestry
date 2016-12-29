@@ -62,8 +62,21 @@ class << ActiveRecord::Base
     scope :descendants_of, lambda { |object| root_scope(object).where(to_node(object).descendant_conditions) }
     scope :subtree_of, lambda { |object| root_scope(object).where(to_node(object).subtree_conditions) }
     scope :siblings_of, lambda { |object| root_scope(object).where(to_node(object).sibling_conditions) }
-    scope :ordered_by_ancestry, lambda { reorder("(case when #{table_name}.#{ancestry_column} is null then 0 else 1 end), #{table_name}.#{ancestry_column}") }
-    scope :ordered_by_ancestry_and, lambda { |order| reorder("(case when #{table_name}.#{ancestry_column} is null then 0 else 1 end), #{table_name}.#{ancestry_column}, #{order}") }
+    scope :ordered_by_ancestry, lambda {
+      if %w(mysql mysql2 sqlite postgresql).include?(connection.adapter_name.downcase) && ActiveRecord::VERSION::MAJOR >= 5
+        reorder("coalesce(#{connection.quote_table_name(table_name)}.#{connection.quote_column_name(ancestry_column)}, '')")
+      else
+        reorder("(CASE WHEN #{connection.quote_table_name(table_name)}.#{connection.quote_column_name(ancestry_column)} IS NULL THEN 0 ELSE 1 END), #{connection.quote_table_name(table_name)}.#{connection.quote_column_name(ancestry_column)}")
+      end
+    }
+    scope :ordered_by_ancestry_and, lambda { |order|
+      if %w(mysql mysql2 sqlite postgresql).include?(connection.adapter_name.downcase) && ActiveRecord::VERSION::MAJOR >= 5
+        reorder("coalesce(#{connection.quote_table_name(table_name)}.#{connection.quote_column_name(ancestry_column)}, ''), #{order}")
+      else
+        reorder("(CASE WHEN #{connection.quote_table_name(table_name)}.#{connection.quote_column_name(ancestry_column)} IS NULL THEN 0 ELSE 1 END), #{connection.quote_table_name(table_name)}.#{connection.quote_column_name(ancestry_column)}, #{order}")
+      end
+    }
+    scope :path_of, lambda { |object| to_node(object).path }
 
     # Set scope association unless already set
     before_save :set_scope_association
@@ -96,9 +109,9 @@ class << ActiveRecord::Base
       }
     end
 
-    after_save :touch_ancestors_callback
     after_touch :touch_ancestors_callback
     after_destroy :touch_ancestors_callback
+    after_save :touch_ancestors_callback, if: :changed?
   end
 end
 

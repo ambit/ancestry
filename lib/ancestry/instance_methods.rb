@@ -158,6 +158,10 @@ module Ancestry
       write_attribute self.ancestry_base_class.depth_cache_column, depth
     end
 
+    def ancestor_of?(node)
+      node.ancestor_ids.include?(self.id)
+    end
+
     # Parent
 
     def parent= parent
@@ -179,12 +183,14 @@ module Ancestry
     def parent_id?
       parent_id.present?
     end
-
     # Scope
     def scope_conditions
       return true unless self.ancestry_scope_column
       t = get_arel_table
       t[get_scope_column].eq(eval("self.#{ancestry_scope_column}"))
+
+    def parent_of?(node)
+      self.id == node.parent_id
     end
 
     # Root
@@ -215,6 +221,10 @@ module Ancestry
     end
     alias :root? :is_root?
 
+    def root_of?(node)
+      self.id == node.root_id
+    end
+
     # Children
 
     def child_conditions
@@ -227,7 +237,7 @@ module Ancestry
     end
 
     def child_ids
-      children.select(self.ancestry_base_class.primary_key).map(&self.ancestry_base_class.primary_key.to_sym)
+      children.pluck(self.ancestry_base_class.primary_key)
     end
 
     def has_children?
@@ -239,6 +249,10 @@ module Ancestry
       !has_children?
     end
     alias_method :childless?, :is_childless?
+
+    def child_of?(node)
+      self.parent_id == node.id
+    end
 
     # Siblings
 
@@ -252,7 +266,7 @@ module Ancestry
     end
 
     def sibling_ids
-      siblings.select(self.ancestry_base_class.primary_key).collect(&self.ancestry_base_class.primary_key.to_sym)
+      siblings.pluck(self.ancestry_base_class.primary_key)
     end
 
     def has_siblings?
@@ -278,11 +292,20 @@ module Ancestry
       end
     end
 
+    def sibling_of?(node)
+      self.ancestry == node.ancestry
+    end
+
     # Descendants
 
     def descendant_conditions
       t = get_arel_table
-      t[get_ancestry_column].matches("#{child_ancestry}/%").or(t[get_ancestry_column].eq(child_ancestry))
+      # rails has case sensitive matching.
+      if ActiveRecord::VERSION::MAJOR >= 5
+        t[get_ancestry_column].matches("#{child_ancestry}/%", nil, true).or(t[get_ancestry_column].eq(child_ancestry))
+      else
+        t[get_ancestry_column].matches("#{child_ancestry}/%").or(t[get_ancestry_column].eq(child_ancestry))
+      end
     end
 
     def descendants depth_options = {}
@@ -290,14 +313,18 @@ module Ancestry
     end
 
     def descendant_ids depth_options = {}
-      descendants(depth_options).select(self.ancestry_base_class.primary_key).collect(&self.ancestry_base_class.primary_key.to_sym)
+      descendants(depth_options).pluck(self.ancestry_base_class.primary_key)
+    end
+
+    def descendant_of?(node)
+      ancestor_ids.include?(node.id)
     end
 
     # Subtree
 
     def subtree_conditions
       t = get_arel_table
-      t[get_primary_key_column].eq(self.id).or(t[get_ancestry_column].matches("#{child_ancestry}/%")).or(t[get_ancestry_column].eq(child_ancestry))
+      descendant_conditions.or(t[get_primary_key_column].eq(self.id))
     end
 
     def subtree depth_options = {}
@@ -305,7 +332,7 @@ module Ancestry
     end
 
     def subtree_ids depth_options = {}
-      subtree(depth_options).select(self.ancestry_base_class.primary_key).collect(&self.ancestry_base_class.primary_key.to_sym)
+      subtree(depth_options).pluck(self.ancestry_base_class.primary_key)
     end
 
     # Callback disabling
@@ -317,13 +344,13 @@ module Ancestry
     end
 
     def ancestry_callbacks_disabled?
-      !!@disable_ancestry_callbacks
+      defined?(@disable_ancestry_callbacks) && @disable_ancestry_callbacks
     end
 
   private
 
     def cast_primary_key(key)
-      if [:string, :uuid].include? primary_key_type
+      if [:string, :uuid, :text].include? primary_key_type
         key
       else
         key.to_i
@@ -342,7 +369,8 @@ module Ancestry
 
     # Validates the ancestry, but can also be applied if validation is bypassed to determine if children should be affected
     def sane_ancestry?
-      ancestry.nil? || (ancestry.to_s =~ Ancestry::ANCESTRY_PATTERN && !ancestor_ids.include?(self.id))
+      ancestry_value = read_attribute(self.ancestry_base_class.ancestry_column)
+      ancestry_value.nil? || (ancestry_value.to_s =~ Ancestry::ANCESTRY_PATTERN && !ancestor_ids.include?(self.id))
     end
 
     def unscoped_find id
