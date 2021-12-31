@@ -5,7 +5,7 @@ gemspec
 gem "appraisal"
 gem "rdoc"
 gem "coveralls", require: false
-gem "activerecord", '~> 4.0.2'
+gem "activerecord", '~> 5.1.7'
 
 # RUBY_VERSION < "2.0"
 gem "json", "~> 1.8.3"
