@@ -99,13 +99,13 @@ module Ancestry
       # New records cannot have children
       raise Ancestry::AncestryException.new('No child ancestry for new record. Save record before performing tree operations.') if new_record?
 
-      if self.send("#{self.ancestry_base_class.ancestry_column}_was").blank? then id.to_s else "#{self.send "#{self.ancestry_base_class.ancestry_column}_was"}/#{id}" end
+      if self.send("#{self.ancestry_base_class.ancestry_column}_before_last_save").blank? then id.to_s else "#{self.send "#{self.ancestry_base_class.ancestry_column}_before_last_save"}/#{id}" end
     end
 
     # Ancestors
 
     def ancestry_changed?
-      changed.include?(self.ancestry_base_class.ancestry_column.to_s)
+      saved_changes.keys.include?(self.ancestry_base_class.ancestry_column.to_s)
     end
 
     def parse_ancestry_column obj
@@ -130,7 +130,7 @@ module Ancestry
     end
 
     def ancestor_ids_was
-      parse_ancestry_column(changed_attributes[self.ancestry_base_class.ancestry_column.to_s])
+      parse_ancestry_column(saved_changes[self.ancestry_base_class.ancestry_column.to_s]&.first)
     end
 
     def path_ids
