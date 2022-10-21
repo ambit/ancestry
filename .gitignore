@@ -6,3 +6,5 @@ test/database.yml
 coverage
 Gemfile.lock
 gemfiles/*.lock
+#ignore vendor/bundle
+vendor/bundle/*
