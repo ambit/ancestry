@@ -64,14 +64,14 @@ class << ActiveRecord::Base
     scope :siblings_of, lambda { |object| root_scope(object).where(to_node(object).sibling_conditions) }
     scope :ordered_by_ancestry, lambda {
       if %w(mysql mysql2 sqlite postgresql).include?(connection.adapter_name.downcase) && ActiveRecord::VERSION::MAJOR >= 5
-        reorder("coalesce(Arel.sql(#{connection.quote_table_name(table_name)}.#{connection.quote_column_name(ancestry_column)}, ''))")
+        reorder(Arel.sql("coalesce(#{connection.quote_table_name(table_name)}.#{connection.quote_column_name(ancestry_column)}, '')"))
       else
         reorder("(CASE WHEN #{connection.quote_table_name(table_name)}.#{connection.quote_column_name(ancestry_column)} IS NULL THEN 0 ELSE 1 END), #{connection.quote_table_name(table_name)}.#{connection.quote_column_name(ancestry_column)}")
       end
     }
     scope :ordered_by_ancestry_and, lambda { |order|
       if %w(mysql mysql2 sqlite postgresql).include?(connection.adapter_name.downcase) && ActiveRecord::VERSION::MAJOR >= 5
-        reorder("coalesce(Arel.sql(#{connection.quote_table_name(table_name)}.#{connection.quote_column_name(ancestry_column)}, ''), #{order})")
+        reorder(Arel.sql("coalesce(#{connection.quote_table_name(table_name)}.#{connection.quote_column_name(ancestry_column)}, ''), #{order}"))
       else
         reorder("(CASE WHEN #{connection.quote_table_name(table_name)}.#{connection.quote_column_name(ancestry_column)} IS NULL THEN 0 ELSE 1 END), #{connection.quote_table_name(table_name)}.#{connection.quote_column_name(ancestry_column)}, #{order}")
       end
